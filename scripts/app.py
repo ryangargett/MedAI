@@ -1,4 +1,5 @@
 import torch
+import re
 import os
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, pipeline
 from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
@@ -36,9 +37,29 @@ def get_model_tokenizer(model_id):
     return tokenizer, model
 
 
+def _get_diagnoses(diagnoses):
+
+    message_components = diagnoses.split("Diagnosis:")
+
+    if len(message_components) > 1:
+        output = "Diagnosis:".join(message_components[1:])
+    else:
+        output = message_components[1]
+
+    diagnoses = re.split(r"\d+\.", output)
+    diagnoses = [diagnosis.strip() for diagnosis in diagnoses]
+
+    return diagnoses
+
+
+def get_model_benchmark(diagnoses):
+
+    diagnoses = _get_diagnoses(diagnoses)
+
+
 if __name__ == "__main__":
     # tokenizer_biom, model_biom = get_model_tokenizer("BioMistral/BioMistral-7B")
-    tokenizer_meditron, model_meditron = get_model_tokenizer("epfl-llm/meditron-7b")
+    tokenizer_meditron, model_meditron = get_model_tokenizer("BioMistral/BioMistral-7B")
 
     # pipe_biom = pipeline("text-generation",
     #                     model=model_biom,
@@ -62,11 +83,15 @@ if __name__ == "__main__":
 
     system_prompt = "You are a helpful medical assistant. You will be provided and asked about a complicated clinical case; read it carefully and then provide a concise DDx."
     case = "An asymptomatic 47-year-old woman with a history of recurrent melanoma presented to the hospital after routine quarterly surveillance imaging, performed after resection of right axillary melanoma, radiation therapy, and pembrolizumab therapy, had revealed new hilar and mediastinal lymphadenopathy and new pulmonary nodules. Diagnostic tests were performed."
-    query = "Provide three concise diagnoses."
+    query = "Provide five concise diagnoses. These should be sorted by likelihood."
 
     chain = LLMChain(llm=hf_pipeline_meditron,
                      prompt=prompt)
 
-    print(chain.run(system_prompt=system_prompt,
-                    case=case,
-                    query=query))
+    diagnosis = chain.run(system_prompt=system_prompt,
+                          case=case,
+                          query=query)
+
+    print(diagnosis)
+
+    get_model_benchmark(diagnosis)
