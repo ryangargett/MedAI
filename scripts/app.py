@@ -6,6 +6,7 @@ from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from sklearn.metrics import jaccard_score
+from sklearn.feature_extraction.text import CountVectorizer
 
 
 def _get_bnb_config():
@@ -41,7 +42,6 @@ def get_model_tokenizer(model_id):
 def _get_diagnoses(diagnoses):
 
     message_components = diagnoses.split("Diagnoses:")
-    print(message_components)
 
     if len(message_components) > 1:
         output = "Diagnoses:".join(message_components[1:])
@@ -51,19 +51,41 @@ def _get_diagnoses(diagnoses):
     diagnoses = re.split(r"\d+\.", output)
     diagnoses = [diagnosis.strip() for diagnosis in diagnoses]
 
-    return diagnoses
+    return diagnoses[1:]
+
+
+def _get_score(str1, str2):
+
+    vectorizer = CountVectorizer().fit([str1, str2])
+
+    vectors = vectorizer.transform([str1, str2]).toarray()
+    similarity = jaccard_score(vectors[0], vectors[1])
+
+    return similarity
 
 
 def get_model_benchmark(diagnoses):
 
     diagnoses = _get_diagnoses(diagnoses)
 
+    print(diagnoses)
+
     ground_truth = "Pulmonary histoplasmosis"
+
+    metrics = []
+
+    for diagnosis in diagnoses:
+        metric = _get_score(ground_truth, diagnosis)
+        print(metric)
+        metrics.append(metric)
+
+    avg_metric = sum(metrics) / len(metrics)
+    print(avg_metric)
 
 
 if __name__ == "__main__":
     # tokenizer_biom, model_biom = get_model_tokenizer("BioMistral/BioMistral-7B")
-    tokenizer_meditron, model_meditron = get_model_tokenizer("BioMistral/BioMistral-7B")
+    tokenizer_meditron, model_meditron = get_model_tokenizer("epfl-llm/meditron-7b")
 
     # pipe_biom = pipeline("text-generation",
     #                     model=model_biom,
