@@ -49,10 +49,14 @@ def _get_diagnoses(diagnoses):
     else:
         output = message_components[1]
 
-    diagnoses = re.split(r"\d+\.", output)
-    diagnoses = [diagnosis.strip().split('\n')[0] for diagnosis in diagnoses]  # Account for any unnecessary generation
+    print(f"\noutput: {output}")
 
-    return diagnoses[1:]
+    diagnoses = re.split(r"^\d+\.", output, flags=re.MULTILINE)
+    # diagnoses = [diagnosis.strip().split('\n')[0] for diagnosis in diagnoses]  # Account for any unnecessary generation
+    diagnoses = [diagnosis.strip().split('\n')[0] for diagnosis in diagnoses]  # Remove any invalid diagnoses (e.g. ;)
+
+    diagnoses_filtered = diagnoses[1:4]
+    return diagnoses_filtered
 
 
 def compute_similarity(ground_truth, diagnosis, em_extractor):
@@ -67,19 +71,29 @@ def compute_similarity(ground_truth, diagnosis, em_extractor):
 def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
 
     diagnoses = _get_diagnoses(diagnoses)
+    print(f"\nGround Truth: {ground_truth}")
 
-    print(f"Ground Truth: {ground_truth}")
+    if len(diagnoses) > 0:
 
-    metrics = []
+        metrics = []
 
-    for diagnosis in diagnoses:
-        metric = compute_similarity(ground_truth, diagnosis, embedding_extractor)
-        print(f"Diagnosis: {diagnosis}; Metric: {metric}")
-        metrics.append(metric)
+        for diagnosis in diagnoses:
+            if len(diagnosis) > 0:
+                metric = compute_similarity(ground_truth, diagnosis, embedding_extractor)
+            else:
+                metric = 0
+            print(f"Diagnosis: {diagnosis}; Metric: {metric}")
+            metrics.append(metric)
 
-    weights = 1 / np.arange(1, len(metrics) + 1)
+        weights = 1 / np.arange(1, len(metrics) + 1)
 
-    weighted_similarity = np.average(metrics, weights=weights)
+        weighted_similarity = np.average(metrics, weights=weights)
+
+    else:
+
+        weighted_similarity = 0
+
+    print(f"Weighted Similarity: {weighted_similarity}")
     return weighted_similarity
 
 
@@ -101,8 +115,8 @@ if __name__ == "__main__":
     pipe_meditron = pipeline("text-generation",
                              model=model_meditron,
                              tokenizer=tokenizer_meditron,
-                             max_new_tokens=50,
-                             temperature=0.1,
+                             max_new_tokens=100,
+                             temperature=0.3,
                              do_sample=True)
 
     hf_pipeline_meditron = HuggingFacePipeline(pipeline=pipe_meditron)
@@ -113,7 +127,7 @@ if __name__ == "__main__":
                             template=template)
 
     system_prompt = "You are a helpful medical assistant. You will be provided and asked about a complicated clinical case; read it carefully and then provide a concise DDx."
-    query = "Provide five concise diagnoses. These should be sorted by likelihood."
+    query = "Provide three diagnoses. These should be sorted by likelihood. Always provide the most likely diagnosis first."
 
     chain = LLMChain(llm=hf_pipeline_meditron,
                      prompt=prompt)
