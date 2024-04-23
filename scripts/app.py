@@ -5,6 +5,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
+from sklearn.metrics import jaccard_score
 
 
 def _get_bnb_config():
@@ -39,10 +40,11 @@ def get_model_tokenizer(model_id):
 
 def _get_diagnoses(diagnoses):
 
-    message_components = diagnoses.split("Diagnosis:")
+    message_components = diagnoses.split("Diagnoses:")
+    print(message_components)
 
     if len(message_components) > 1:
-        output = "Diagnosis:".join(message_components[1:])
+        output = "Diagnoses:".join(message_components[1:])
     else:
         output = message_components[1]
 
@@ -55,6 +57,8 @@ def _get_diagnoses(diagnoses):
 def get_model_benchmark(diagnoses):
 
     diagnoses = _get_diagnoses(diagnoses)
+
+    ground_truth = "Pulmonary histoplasmosis"
 
 
 if __name__ == "__main__":
@@ -91,7 +95,5 @@ if __name__ == "__main__":
     diagnosis = chain.run(system_prompt=system_prompt,
                           case=case,
                           query=query)
-
-    print(diagnosis)
 
     get_model_benchmark(diagnosis)
