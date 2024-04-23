@@ -7,6 +7,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
 import numpy as np
 from sentence_transformers import SentenceTransformer, util
+import json
 
 
 def _get_bnb_config():
@@ -63,16 +64,13 @@ def compute_similarity(ground_truth, diagnosis, em_extractor):
     return cosine_similarity.item()
 
 
-def get_model_benchmark(diagnoses, ground_truth="Pulmonary histoplasmosis"):
+def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
 
     diagnoses = _get_diagnoses(diagnoses)
 
     print(f"Ground Truth: {ground_truth}")
 
     metrics = []
-
-    embedding_extractor = SentenceTransformer("NeuML/pubmedbert-base-embeddings",
-                                              device="cuda")
 
     for diagnosis in diagnoses:
         metric = compute_similarity(ground_truth, diagnosis, embedding_extractor)
@@ -85,9 +83,20 @@ def get_model_benchmark(diagnoses, ground_truth="Pulmonary histoplasmosis"):
     return weighted_similarity
 
 
+def get_output(chain, system_prompt, case, query):
+
+    output = chain.run(system_prompt=system_prompt,
+                       case=case,
+                       query=query)
+    return output
+
+
 if __name__ == "__main__":
     # tokenizer_biom, model_biom = get_model_tokenizer("BioMistral/BioMistral-7B")
     tokenizer_meditron, model_meditron = get_model_tokenizer("epfl-llm/meditron-7b")
+
+    embedding_extractor = SentenceTransformer("NeuML/pubmedbert-base-embeddings",
+                                              device="cuda")
 
     pipe_meditron = pipeline("text-generation",
                              model=model_meditron,
@@ -109,10 +118,8 @@ if __name__ == "__main__":
     chain = LLMChain(llm=hf_pipeline_meditron,
                      prompt=prompt)
 
-    get_output(chain, case)
+    cases = json.load(open("data/cases.json", "r"))
 
-    diagnosis = chain.run(system_prompt=system_prompt,
-                          case=case,
-                          query=query)
-
-    metric = get_model_benchmark(diagnosis)
+    for case_num, info in cases.items():
+        output = get_output(chain, system_prompt, info["description"], query)
+        metric = get_model_benchmark(output, info["diagnosis"], embedding_extractor)
