@@ -1,0 +1,42 @@
+{
+    "case1": {
+        "description": "A 22-year-old man was admitted with pain and erythema of the left hand. On the day of admission, he awoke with pain and swelling of the hand that involved the second and fourth fingers. Over several hours, the pain progressed and bullae began to form. The patient had recently begun practicing taxidermy. A diagnostic test was performed.",
+        "diagnosis": "Erysipelothrix rhusiopathiae infection"
+    },
+    "case2": {
+        "description": "An asymptomatic 47-year-old woman with a history of recurrent melanoma presented to the hospital after routine quarterly surveillance imaging, performed after resection of right axillary melanoma, radiation therapy, and pembrolizumab therapy, had revealed new hilar and mediastinal lymphadenopathy and new pulmonary nodules. Diagnostic tests were performed.",
+        "diagnosis": "Pulmonary histoplasmosis"
+    },
+    "case3": {
+        "description": "A 53-year-old woman presented with progressive headache and gait instability. MRI showed an enhancing intraaxial lesion (2.0 cm by 1.8 cm by 1.7 cm) in the right cerebellar hemisphere. An HIV screening assay was reactive, but plasma HIV-1 RNA was not detected; the CD4+ T-cell count was 39 per microliter. Diagnostic tests were performed.",
+        "diagnosis": "Human immunodeficiency virus type 2 infection and cerebral toxoplasmosis."
+    },
+    "case4": {
+        "description": "A 63-year-old man with a history of primary membranous nephropathy presented with fever, confusion, headache, garbled speech, vision changes, lymphocytic pleocytosis, and an elevated CSF protein level. MRI of the head revealed sulcal hyperintensity on FLAIR images, with associated subtle enhancement on T1-weighted images. A diagnosis was made.",
+        "diagnosis": "Borrelia miyamotoi infection"
+    },
+    "case5": {
+        "description": "A 29-month-old boy with a history of febrile seizure, atopic dermatitis, and multiple environmental and food allergies was transferred to the hospital because of a seizure and a blood calcium level of 5.0 mg per deciliter (reference range, 8.5 to 10.5). He had a pes planus deformity. A diagnostic test was performed.",
+        "diagnosis": "Vitamin D deficiency"
+    },
+    "case6": {
+        "description": "A 48-year-old man presented with acute vision loss that lasted 1 hour. His history included fatigue and weight loss of 4.5 kg in the past year, as well as bilateral jaw pain with chewing in the past 2 months. He had normocytic anemia and elevated levels of aminotransferases and alkaline phosphatase. A diagnostic test was performed.",
+        "diagnosis": "Systemic primary amyloidosis"
+    },
+    "case7": {
+        "description": "A 14-year-old boy was admitted with fatigue, fever, joint pain, abdominal cramping, and diarrhea. He had been well until 2 weeks earlier, when fatigue and fever developed on his final day of summer camp. On the day of admission, he had pain in his shoulders and knees and a temperature of 39.2°C. A diagnostic test was performed.",
+        "diagnosis": "Lyme disease."
+    },
+    "case8": {
+        "description": "A 57-year-old man with polyarteritis nodosa was evaluated for cough and pulmonary opacities. Chest CT revealed multifocal clustered centrilobular nodules and opacities in a tree-in-bud pattern. A galactomannan test was positive. Diagnostic tests were performed",
+        "diagnosis": "Tuberculosis"
+    },
+    "case9": {
+        "description": "A 17-year-old girl was admitted because of prolonged fever and cough. She had an elevated creatinine level and a low hemoglobin level. A diagnostic test was performed.",
+        "diagnosis": "Wegener syndrome"
+    },
+    "case10": {
+        "description": "An 11-year-old girl with latent tuberculosis infection was evaluated for eye redness of 8 weeks’ duration. Funduscopy had shown optic-disk edema, peripheral retinal hemorrhages, and perivascular exudates. A diagnosis was made.",
+        "diagnosis": "Sarcoidosis"
+    }
+}
