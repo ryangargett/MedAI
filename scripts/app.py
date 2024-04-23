@@ -8,6 +8,7 @@ from langchain.chains import LLMChain
 import numpy as np
 from sentence_transformers import SentenceTransformer, util
 import json
+from scipy.special import expit
 
 
 def _get_bnb_config():
@@ -51,11 +52,12 @@ def _get_diagnoses(diagnoses):
 
     print(f"\noutput: {output}")
 
-    diagnoses = re.split(r"^\d+\.", output, flags=re.MULTILINE)
-    # diagnoses = [diagnosis.strip().split('\n')[0] for diagnosis in diagnoses]  # Account for any unnecessary generation
-    diagnoses = [diagnosis.strip().split('\n')[0] for diagnosis in diagnoses]  # Remove any invalid diagnoses (e.g. ;)
+    diagnoses = re.split(r"\d+\)\s(?!\n)|\d+\.\s(?!\n)", output)
+    diagnoses = [diagnosis.strip().split('\n')[0] for diagnosis in diagnoses]
 
-    diagnoses_filtered = diagnoses[1:4]
+    # print(f"\n{diagnoses}")
+
+    diagnoses_filtered = diagnoses[1:6]
     return diagnoses_filtered
 
 
@@ -70,24 +72,51 @@ def compute_similarity(ground_truth, diagnosis, em_extractor):
 
 def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
 
+    ground_truth = ground_truth.strip().lower()
+
     diagnoses = _get_diagnoses(diagnoses)
+
+    perfect_match = False
+
     print(f"\nGround Truth: {ground_truth}")
 
     if len(diagnoses) > 0:
 
         metrics = []
+        prev_diagnoses = {}
+        idx = 0
 
-        for diagnosis in diagnoses:
+        while idx < len(diagnoses) and not perfect_match:
+
+            diagnosis = diagnoses[idx]
+
             if len(diagnosis) > 0:
+
+                diagnosis = diagnosis.strip().lower()
+
                 metric = compute_similarity(ground_truth, diagnosis, embedding_extractor)
+
+                if metric > 0.95:  # account for non-deterministic processes
+                    perfect_match = True
+
+                if diagnosis in prev_diagnoses:
+                    metric /= 2 ** prev_diagnoses[diagnosis]
+                prev_diagnoses[diagnosis] = prev_diagnoses.get(diagnosis, 0) + 1
+
             else:
                 metric = 0
+
             print(f"Diagnosis: {diagnosis}; Metric: {metric}")
             metrics.append(metric)
 
-        weights = 1 / np.arange(1, len(metrics) + 1)
+            idx += 1
 
-        weighted_similarity = np.average(metrics, weights=weights)
+        metrics = np.array(metrics)
+
+        metric_ranks = np.arange(1, len(metrics) + 1)
+        metric_weights = expit(metrics) / metric_ranks
+
+        weighted_similarity = np.average(metrics, weights=metric_weights)
 
     else:
 
@@ -106,7 +135,9 @@ def get_output(chain, system_prompt, case, query):
 
 
 if __name__ == "__main__":
-    # tokenizer_biom, model_biom = get_model_tokenizer("BioMistral/BioMistral-7B")
+    # tokenizer_biom, model_biom =
+    # get_model_tokenizer("BioMistral/BioMistral-7B")
+
     tokenizer_meditron, model_meditron = get_model_tokenizer("epfl-llm/meditron-7b")
 
     embedding_extractor = SentenceTransformer("NeuML/pubmedbert-base-embeddings",
@@ -127,7 +158,7 @@ if __name__ == "__main__":
                             template=template)
 
     system_prompt = "You are a helpful medical assistant. You will be provided and asked about a complicated clinical case; read it carefully and then provide a concise DDx."
-    query = "Provide three diagnoses. These should be sorted by likelihood. Always provide the most likely diagnosis first."
+    query = "Provide five diagnoses. These should be sorted by likelihood. Always provide the most likely diagnosis first."
 
     chain = LLMChain(llm=hf_pipeline_meditron,
                      prompt=prompt)
