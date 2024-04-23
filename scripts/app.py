@@ -5,8 +5,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
-from sklearn.metrics import jaccard_score
-from sklearn.feature_extraction.text import CountVectorizer
+import numpy as np
+from sentence_transformers import SentenceTransformer, util
 
 
 def _get_bnb_config():
@@ -49,48 +49,45 @@ def _get_diagnoses(diagnoses):
         output = message_components[1]
 
     diagnoses = re.split(r"\d+\.", output)
-    diagnoses = [diagnosis.strip() for diagnosis in diagnoses]
+    diagnoses = [diagnosis.strip().split('\n')[0] for diagnosis in diagnoses]  # Account for any unnecessary generation
 
     return diagnoses[1:]
 
 
-def _get_score(str1, str2):
+def compute_similarity(ground_truth, diagnosis, em_extractor):
 
-    vectorizer = CountVectorizer().fit([str1, str2])
+    em1 = em_extractor.encode(ground_truth, convert_to_tensor=True)
+    em2 = em_extractor.encode(diagnosis, convert_to_tensor=True)
 
-    vectors = vectorizer.transform([str1, str2]).toarray()
-    similarity = jaccard_score(vectors[0], vectors[1])
-
-    return similarity
+    cosine_similarity = util.cos_sim(em1, em2)
+    return cosine_similarity.item()
 
 
-def get_model_benchmark(diagnoses):
+def get_model_benchmark(diagnoses, ground_truth="Pulmonary histoplasmosis"):
 
     diagnoses = _get_diagnoses(diagnoses)
 
-    print(diagnoses)
-
-    ground_truth = "Pulmonary histoplasmosis"
+    print(f"Ground Truth: {ground_truth}")
 
     metrics = []
 
+    embedding_extractor = SentenceTransformer("NeuML/pubmedbert-base-embeddings",
+                                              device="cuda")
+
     for diagnosis in diagnoses:
-        metric = _get_score(ground_truth, diagnosis)
-        print(metric)
+        metric = compute_similarity(ground_truth, diagnosis, embedding_extractor)
+        print(f"Diagnosis: {diagnosis}; Metric: {metric}")
         metrics.append(metric)
 
-    avg_metric = sum(metrics) / len(metrics)
-    print(avg_metric)
+    weights = 1 / np.arange(1, len(metrics) + 1)
+
+    weighted_similarity = np.average(metrics, weights=weights)
+    return weighted_similarity
 
 
 if __name__ == "__main__":
     # tokenizer_biom, model_biom = get_model_tokenizer("BioMistral/BioMistral-7B")
     tokenizer_meditron, model_meditron = get_model_tokenizer("epfl-llm/meditron-7b")
-
-    # pipe_biom = pipeline("text-generation",
-    #                     model=model_biom,
-    #                     tokenizer=tokenizer_biom,
-    #                    max_new_tokens=200)
 
     pipe_meditron = pipeline("text-generation",
                              model=model_meditron,
@@ -99,7 +96,6 @@ if __name__ == "__main__":
                              temperature=0.1,
                              do_sample=True)
 
-    # hf_pipeline_biom = HuggingFacePipeline(pipeline=pipe_biom)
     hf_pipeline_meditron = HuggingFacePipeline(pipeline=pipe_meditron)
 
     template = "{system_prompt}\n\nCase: {case}\n\nQuery: {query}\n\nDiagnoses:"
@@ -108,14 +104,15 @@ if __name__ == "__main__":
                             template=template)
 
     system_prompt = "You are a helpful medical assistant. You will be provided and asked about a complicated clinical case; read it carefully and then provide a concise DDx."
-    case = "An asymptomatic 47-year-old woman with a history of recurrent melanoma presented to the hospital after routine quarterly surveillance imaging, performed after resection of right axillary melanoma, radiation therapy, and pembrolizumab therapy, had revealed new hilar and mediastinal lymphadenopathy and new pulmonary nodules. Diagnostic tests were performed."
     query = "Provide five concise diagnoses. These should be sorted by likelihood."
 
     chain = LLMChain(llm=hf_pipeline_meditron,
                      prompt=prompt)
 
+    get_output(chain, case)
+
     diagnosis = chain.run(system_prompt=system_prompt,
                           case=case,
                           query=query)
 
-    get_model_benchmark(diagnosis)
+    metric = get_model_benchmark(diagnosis)
