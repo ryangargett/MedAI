@@ -50,8 +50,6 @@ def _get_diagnoses(diagnoses):
     else:
         output = message_components[1]
 
-    print(f"\noutput: {output}")
-
     diagnoses = re.split(r"\d+\)\s(?!\n)|\d+\.\s(?!\n)", output)
     diagnoses = [diagnosis.strip().split('\n')[0] for diagnosis in diagnoses]
 
@@ -78,8 +76,6 @@ def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
 
     perfect_match = False
 
-    print(f"\nGround Truth: {ground_truth}")
-
     if len(diagnoses) > 0:
 
         metrics = []
@@ -103,10 +99,11 @@ def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
                     metric /= 2 ** prev_diagnoses[diagnosis]
                 prev_diagnoses[diagnosis] = prev_diagnoses.get(diagnosis, 0) + 1
 
+                print(f"Diagnosis: {diagnosis} Metric: {metric}")
+
             else:
                 metric = 0
 
-            print(f"Diagnosis: {diagnosis}; Metric: {metric}")
             metrics.append(metric)
 
             idx += 1
@@ -122,7 +119,6 @@ def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
 
         weighted_similarity = 0
 
-    print(f"Weighted Similarity: {weighted_similarity}")
     return weighted_similarity
 
 
@@ -165,6 +161,24 @@ if __name__ == "__main__":
 
     cases = json.load(open("data/cases.json", "r"))
 
+    num_trials = 5
+    total_metrics = {}
+
     for case_num, info in cases.items():
-        output = get_output(chain, system_prompt, info["description"], query)
-        metric = get_model_benchmark(output, info["diagnosis"], embedding_extractor)
+
+        trial_metrics = []
+
+        for trial in range(num_trials):
+
+            print(f"\nCase: {info['diagnosis']} Trial: {trial + 1}")
+            output = get_output(chain, system_prompt, info["description"], query)
+            metric = get_model_benchmark(output, info["diagnosis"], embedding_extractor)
+
+            trial_metrics.append(metric)
+            print(f"Weighted Metric: {metric}")
+
+        average_weighted_metric = round(sum(trial_metrics) / num_trials, 4)
+        print(f"\nAverage Weighted Metric: {average_weighted_metric}")
+        total_metrics[case_num] = average_weighted_metric
+
+    print(total_metrics)
