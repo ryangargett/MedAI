@@ -22,6 +22,11 @@ from scipy.special import expit
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from huggingface_hub import login
+import torch
+import random
+import numpy as np
+
+RANDOM_SEED = 12345
 
 
 def _get_bnb_config():
@@ -247,9 +252,13 @@ if __name__ == "__main__":
     # tokenizer_biom, model_biom =
     # get_model_tokenizer("BioMistral/BioMistral-7B")
 
+    torch.manual_seed(RANDOM_SEED)
+    random.seed(RANDOM_SEED)
+    np.random.seed(RANDOM_SEED)
+
     login(token="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")
 
-    tokenizer_meditron, model_meditron = get_model_tokenizer("mistralai/Mistral-7B-Instruct-v0.2")
+    tokenizer_meditron, model_meditron = get_model_tokenizer("BioMistral/BioMistral-7B")
 
     embedding_extractor = SentenceTransformer("NeuML/pubmedbert-base-embeddings",
                                               device="cpu")
@@ -257,7 +266,7 @@ if __name__ == "__main__":
     pipe_meditron = pipeline("text-generation",
                              model=model_meditron,
                              tokenizer=tokenizer_meditron,
-                             max_new_tokens=100,
+                             max_new_tokens=500,
                              temperature=0.3,
                              do_sample=True)
 
