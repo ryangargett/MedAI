@@ -159,8 +159,12 @@ def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
     diagnoses = _get_diagnoses(diagnoses)
 
     perfect_match = False
+
     context_weight = 0.8
     set_weight = 0.2
+
+    context_threshold = 0.95
+    set_threshold = 0.95
 
     if len(diagnoses) > 0:
 
@@ -179,7 +183,7 @@ def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
                 context_similarity = compute_context_similarity(ground_truth, diagnosis, embedding_extractor)
                 set_similarity = compute_set_similarity(ground_truth, diagnosis)
 
-                if context_similarity > 0.95 or set_similarity == 1:  # account for non-deterministic processes
+                if context_similarity > context_threshold or set_similarity > set_threshold:  # account for non-deterministic processes / tolerances
                     perfect_match = True
 
                 if diagnosis in prev_diagnoses:
@@ -232,6 +236,10 @@ def save_results(results, output_path):
 
     with open(output_path, "w") as f:
         json.dump(results, f)
+
+
+def perform_diagnosis(tokenizer, model, embedding_extractor):
+    pass
 
 
 if __name__ == "__main__":
