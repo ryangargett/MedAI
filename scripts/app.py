@@ -9,6 +9,8 @@ import numpy as np
 from sentence_transformers import SentenceTransformer, util
 import json
 from scipy.special import expit
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 def _get_bnb_config():
@@ -59,7 +61,7 @@ def _get_diagnoses(diagnoses):
     return diagnoses_filtered
 
 
-def compute_similarity(ground_truth, diagnosis, em_extractor):
+def compute_context_similarity(ground_truth, diagnosis, em_extractor):
 
     em1 = em_extractor.encode(ground_truth, convert_to_tensor=True)
     em2 = em_extractor.encode(diagnosis, convert_to_tensor=True)
@@ -68,17 +70,27 @@ def compute_similarity(ground_truth, diagnosis, em_extractor):
     return cosine_similarity.item()
 
 
+def compute_set_similarity(ground_truth, diagnosis, threshold=0.8):
+
+    vectorizer = CountVectorizer().fit_transform([ground_truth, diagnosis])
+    vectors = vectorizer.toarray()
+
+    similarity = cosine_similarity(vectors)
+    return similarity[0, 1]
+
+
 def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
 
     ground_truth = ground_truth.strip().lower()
-
     diagnoses = _get_diagnoses(diagnoses)
 
     perfect_match = False
+    context_weight = 0.8
+    set_weight = 0.2
 
     if len(diagnoses) > 0:
 
-        metrics = []
+        similarities = []
         prev_diagnoses = {}
         idx = 0
 
@@ -90,30 +102,35 @@ def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
 
                 diagnosis = diagnosis.strip().lower()
 
-                metric = compute_similarity(ground_truth, diagnosis, embedding_extractor)
+                context_similarity = compute_context_similarity(ground_truth, diagnosis, embedding_extractor)
+                set_similarity = compute_set_similarity(ground_truth, diagnosis)
 
-                if metric > 0.95:  # account for non-deterministic processes
+                if context_similarity > 0.95 or set_similarity == 1:  # account for non-deterministic processes
                     perfect_match = True
 
                 if diagnosis in prev_diagnoses:
-                    metric /= 2 ** prev_diagnoses[diagnosis]
+                    repetition_penalty = 2 ** prev_diagnoses[diagnosis]
+                    context_similarity /= repetition_penalty
+                    set_similarity /= repetition_penalty
                 prev_diagnoses[diagnosis] = prev_diagnoses.get(diagnosis, 0) + 1
 
-                print(f"Diagnosis: {diagnosis} Metric: {metric}")
+                similarity = (context_weight * context_similarity) + (set_weight * set_similarity)
+
+                print(f"Diagnosis: {diagnosis} context: {context_similarity} set: {set_similarity} total: {similarity}")
 
             else:
-                metric = 0
+                similarity = 0
 
-            metrics.append(metric)
+            similarities.append(similarity)
 
             idx += 1
 
-        metrics = np.array(metrics)
+        similarities = np.array(similarities)
 
-        metric_ranks = np.arange(1, len(metrics) + 1)
-        metric_weights = expit(metrics) / metric_ranks
+        similarity_ranks = np.arange(1, len(similarities) + 1)
+        similarity_weights = expit(similarities) / similarity_ranks
 
-        weighted_similarity = np.average(metrics, weights=metric_weights)
+        weighted_similarity = np.average(similarities, weights=similarity_weights)
 
     else:
 
@@ -128,6 +145,12 @@ def get_output(chain, system_prompt, case, query):
                        case=case,
                        query=query)
     return output
+
+
+def save_results(results, output_path):
+
+    with open(output_path, "w") as f:
+        json.dump(results, f)
 
 
 if __name__ == "__main__":
@@ -162,23 +185,25 @@ if __name__ == "__main__":
     cases = json.load(open("data/cases.json", "r"))
 
     num_trials = 5
-    total_metrics = {}
+    total_similarities = {}
 
     for case_num, info in cases.items():
 
-        trial_metrics = []
+        trial_similarities = []
 
         for trial in range(num_trials):
 
             print(f"\nCase: {info['diagnosis']} Trial: {trial + 1}")
             output = get_output(chain, system_prompt, info["description"], query)
-            metric = get_model_benchmark(output, info["diagnosis"], embedding_extractor)
+            similarity = get_model_benchmark(output, info["diagnosis"], embedding_extractor)
 
-            trial_metrics.append(metric)
-            print(f"Weighted Metric: {metric}")
+            trial_similarities.append(similarity)
+            print(f"Weighted similarity: {similarity}")
 
-        average_weighted_metric = round(sum(trial_metrics) / num_trials, 4)
-        print(f"\nAverage Weighted Metric: {average_weighted_metric}")
-        total_metrics[case_num] = average_weighted_metric
+        average_weighted_similarity = round(sum(trial_similarities) / num_trials, 4)
+        print(f"\nAverage Weighted similarity: {average_weighted_similarity}")
+        total_similarities[case_num] = average_weighted_similarity
 
-    print(total_metrics)
+    print(total_similarities)
+
+    save_results(total_similarities, output_path)
