@@ -21,6 +21,7 @@ import json
 from scipy.special import expit
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from huggingface_hub import login
 
 
 def _get_bnb_config():
@@ -48,9 +49,7 @@ def get_model_tokenizer(model_id):
 
     model_config = _get_bnb_config()
 
-    model = AutoModelForCausalLM.from_pretrained(model_id,
-                                                 device_map="auto",
-                                                 quantization_config=model_config,)
+    model = AutoModelForCausalLM.from_pretrained(model_id).to("cpu")
 
     tokenizer = AutoTokenizer.from_pretrained(model_id,
                                               add_bos_token=True)
@@ -82,6 +81,8 @@ def _get_diagnoses(diagnoses):
         output = "Diagnoses:".join(message_components[1:])
     else:
         output = message_components[1]
+
+    print(f"output: {output}")
 
     diagnoses = re.split(r"\d+\)\s(?!\n)|\d+\.\s(?!\n)", output)
     diagnoses = [diagnosis.strip().split('\n')[0] for diagnosis in diagnoses]
@@ -246,10 +247,12 @@ if __name__ == "__main__":
     # tokenizer_biom, model_biom =
     # get_model_tokenizer("BioMistral/BioMistral-7B")
 
-    tokenizer_meditron, model_meditron = get_model_tokenizer("epfl-llm/meditron-7b")
+    login(token="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")
+
+    tokenizer_meditron, model_meditron = get_model_tokenizer("mistralai/Mistral-7B-Instruct-v0.2")
 
     embedding_extractor = SentenceTransformer("NeuML/pubmedbert-base-embeddings",
-                                              device="cuda")
+                                              device="cpu")
 
     pipe_meditron = pipeline("text-generation",
                              model=model_meditron,
@@ -273,7 +276,7 @@ if __name__ == "__main__":
 
     cases = json.load(open("data/cases.json", "r"))
 
-    num_trials = 5
+    num_trials = 10
     total_similarities = {}
 
     for case_num, info in cases.items():
