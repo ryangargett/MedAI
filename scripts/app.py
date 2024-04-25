@@ -18,9 +18,8 @@ from langchain.chains import LLMChain
 import numpy as np
 from sentence_transformers import SentenceTransformer, util
 import json
-from scipy.special import expit
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+import nltk
+from nltk.corpus import stopwords
 from huggingface_hub import login
 import torch
 import random
@@ -162,11 +161,20 @@ def compute_set_similarity(ground_truth, diagnosis):
         provided sets.
     """
 
-    vectorizer = CountVectorizer().fit_transform([ground_truth, diagnosis])
-    vectors = vectorizer.toarray()
 
-    similarity = cosine_similarity(vectors)
-    return similarity[0, 1]
+def remove_stopwords(text):
+    """Removes stopwords from the input text to avoid erraneous similarity calculations.
+
+    Parameters:
+        text (String): The input text to remove stopwords from.
+
+    Returns:
+        text (String): The input text with stopwords removed.
+    """
+
+    stop_words = set(stopwords.words("english"))
+    text = ' '.join([word for word in text.split() if word.lower() not in stop_words])
+    return text
 
 
 def get_model_benchmark(diagnoses, ground_truth, embedding_extractor, ner_verifier):
@@ -191,13 +199,15 @@ def get_model_benchmark(diagnoses, ground_truth, embedding_extractor, ner_verifi
         ground truth and predicted diagnoses, weighted by order.
     """
 
-    ground_truth = ground_truth.strip().lower()
     diagnoses = _get_diagnoses(diagnoses, ner_verifier)
 
     perfect_match = False
 
     context_threshold = 0.95
     set_threshold = 0.95
+
+    context_weight = 0.9
+    set_weight = 0.1
 
     if len(diagnoses) > 0:
 
@@ -207,7 +217,7 @@ def get_model_benchmark(diagnoses, ground_truth, embedding_extractor, ner_verifi
 
         while idx < len(diagnoses) and not perfect_match:
 
-            diagnosis = diagnoses[idx]
+            diagnosis = remove_stopwords(diagnoses[idx])
 
             if len(diagnosis) > 0:
 
@@ -222,14 +232,17 @@ def get_model_benchmark(diagnoses, ground_truth, embedding_extractor, ner_verifi
                 if diagnosis in prev_diagnoses:
                     repetition_penalty = 2 ** prev_diagnoses[diagnosis]
                     context_similarity /= repetition_penalty
+                    set_similarity /= repetition_penalty
                 prev_diagnoses[diagnosis] = prev_diagnoses.get(diagnosis, 0) + 1
 
-                print(f"Diagnosis: {diagnosis} context: {context_similarity} set: {set_similarity}")
+                similarity = context_weight * context_similarity + set_weight * set_similarity
+
+                print(f"Diagnosis: {diagnosis} context: {context_similarity} set: {set_similarity} total: {similarity}")
 
             else:
                 similarity = 0
 
-            similarities.append(context_similarity)
+            similarities.append(similarity)
             idx += 1
 
         similarities = np.array(similarities)
@@ -239,7 +252,6 @@ def get_model_benchmark(diagnoses, ground_truth, embedding_extractor, ner_verifi
         print(f"Similarity weights: {similarity_weights}")
 
         weighted_similarity = np.average(similarities, weights=similarity_weights)
-        print(f"Weighted similarity: {weighted_similarity}")
     else:
 
         weighted_similarity = 0
@@ -270,8 +282,8 @@ def save_results(results, output_path):
 
 
 if __name__ == "__main__":
-    # tokenizer_biom, model_biom =
-    # get_model_tokenizer("BioMistral/BioMistral-7B")
+
+    nltk.download("stopwords")
 
     torch.manual_seed(RANDOM_SEED)
     random.seed(RANDOM_SEED)
@@ -317,9 +329,14 @@ if __name__ == "__main__":
 
         for trial in range(num_trials):
 
-            print(f"\nCase: {info['diagnosis']} Trial: {trial + 1}")
             output = get_output(chain, system_prompt, info["description"], query)
-            similarity = get_model_benchmark(output, info["diagnosis"], embedding_extractor, ner_verifier)
+
+            diagnosis = info["diagnosis"].strip().lower()
+            processed_diagnosis = remove_stopwords(diagnosis)
+
+            print(f"\nCase: {info['diagnosis']} Trial: {trial + 1}")
+
+            similarity = get_model_benchmark(output, processed_diagnosis, embedding_extractor, ner_verifier)
 
             trial_similarities.append(similarity)
             print(f"Weighted similarity: {similarity}")
