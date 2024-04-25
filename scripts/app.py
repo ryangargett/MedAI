@@ -1,3 +1,13 @@
+##################################################
+# File: app.py                                    #
+# Project: AdaptiveLLM                            #
+# Created Date: Mon Apr 22 2024                   #
+# Author: Ryan Gargett                            #
+# -----                                           #
+#Last Modified: Thu Apr 25 2024                  #
+#Modified By: Ryan Gargett                       #
+##################################################
+
 import torch
 import re
 import os
@@ -24,6 +34,17 @@ def _get_bnb_config():
 
 
 def get_model_tokenizer(model_id):
+    """Downloads the quantized requested model and tokenizer from huggingface, then saves
+    it to a local directory. On subsequent runs, it will load the model from the
+    local directory instead to save time.
+
+    Parameters:
+        model_id (String): The ID of the LLM model to download / load from local directory.
+
+    Returns:
+        tokenizer (AutoTokenizer): The tokenizer for the selected LLM model.
+        model (AutoModelForCausalLM): The selected quantized LLM model.
+    """
 
     model_config = _get_bnb_config()
 
@@ -44,6 +65,16 @@ def get_model_tokenizer(model_id):
 
 
 def _get_diagnoses(diagnoses):
+    """Extracts and formats an ordered list of potential diagnoses, based on the
+    clinical case description. Uses regex to search the model output for the
+    diagnosis list, then formats the list to remove any unnecessary characters.
+
+    Parameters:
+        diagnoses (String): A string containing the output of the LLM model.
+
+    Returns:
+        diagnoses_filtered (List): A list of the top 5 diagnoses extracted from the LLM model output.
+    """
 
     message_components = diagnoses.split("Diagnoses:")
 
@@ -62,6 +93,18 @@ def _get_diagnoses(diagnoses):
 
 
 def compute_context_similarity(ground_truth, diagnosis, em_extractor):
+    """Generates a context similarity score between the extracted medical
+    context embeddings for the ground truth and predicted diagnosis via cosine similarity.
+
+    Parameters:
+        ground truth (String): The ground truth diagnosis.
+        diagnosis (String): The LLM's predicted diagnosis
+        em_extractor (SentenceTransformer): Pretrained embedding extractor
+
+    Returns:
+        cosine_similarity.item() (Float): The cosine similarity score between the two embeddings.
+
+    """
 
     em1 = em_extractor.encode(ground_truth, convert_to_tensor=True)
     em2 = em_extractor.encode(diagnosis, convert_to_tensor=True)
@@ -70,7 +113,18 @@ def compute_context_similarity(ground_truth, diagnosis, em_extractor):
     return cosine_similarity.item()
 
 
-def compute_set_similarity(ground_truth, diagnosis, threshold=0.8):
+def compute_set_similarity(ground_truth, diagnosis):
+    """Generates a similarity score between the ground truth and predicted
+    diagnosis via cosine similarity between the two sets using Bag-of-Words.
+
+    Parameters:
+        ground truth (String): The ground truth diagnosis.
+        diagnosis (String): The LLM's predicted diagnosis.
+
+    Returns:
+        similarity[0, 1] (Float): The cosine similarity score between the two
+        provided sets.
+    """
 
     vectorizer = CountVectorizer().fit_transform([ground_truth, diagnosis])
     vectors = vectorizer.toarray()
@@ -80,6 +134,26 @@ def compute_set_similarity(ground_truth, diagnosis, threshold=0.8):
 
 
 def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
+    """Generates a weighted similarity score between the ground truth and
+    predicted diagnosis. The similarity score is computed based on the set
+    cosine similarity as well as the context similarity. The final results are
+    then weighted according to their position in the list, rewarding the model
+    more for correctly predicting the diagnosis earlier. Positive reinforcement
+    is used to reward the model more for correctly predicting the diagnosis.
+    Finally, a repetition penalty is added for model generations that just
+    repeat the same diagnosis.
+
+    Parameters:
+        diagnosis (String): The output of the LLM model.
+        ground_truth (String): The ground truth diagnosis.
+        embedding_extractor (SentenceTransformer): Pretrained embedding
+        extraction model to compute the context similarity via contextual
+        embeddings. 
+
+    Returns:
+        weighted_similarity (Float): The weighted similarity score between the
+        ground truth and predicted diagnoses, weighted by order.
+    """
 
     ground_truth = ground_truth.strip().lower()
     diagnoses = _get_diagnoses(diagnoses)
@@ -122,7 +196,6 @@ def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
                 similarity = 0
 
             similarities.append(similarity)
-
             idx += 1
 
         similarities = np.array(similarities)
@@ -140,6 +213,14 @@ def get_model_benchmark(diagnoses, ground_truth, embedding_extractor):
 
 
 def get_output(chain, system_prompt, case, query):
+    """Uses langchain to generate the output of the LLM model.
+
+    Returns:
+        chain (LLMChain): The chain storing huggingface pipeline and prompt.
+        system_prompt (String): The system prompt for the LLM model.
+        case (String): The clinical case description.
+        query (String): The query for the LLM model.
+    """
 
     output = chain.run(system_prompt=system_prompt,
                        case=case,
@@ -206,4 +287,4 @@ if __name__ == "__main__":
 
     print(total_similarities)
 
-    save_results(total_similarities, output_path)
+    save_results(total_similarities, "data/results.json")
