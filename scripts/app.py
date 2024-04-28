@@ -4,7 +4,7 @@
 # Created Date: Mon Apr 22 2024                   #
 # Author: Ryan Gargett                            #
 # -----                                           #
-#Last Modified: Sat Apr 27 2024                  #
+#Last Modified: Sun Apr 28 2024                  #
 #Modified By: Ryan Gargett                       #
 ##################################################
 
@@ -378,5 +378,8 @@ if __name__ == "__main__":
         total_similarities[case_num] = average_weighted_similarity
 
     print(total_similarities)
+
+    average_similarity = round(sum(total_similarities.values()) / len(total_similarities), 4)
+    total_similarities["caseavg"] = average_similarity
 
     save_results(total_similarities, "data/results.json")
