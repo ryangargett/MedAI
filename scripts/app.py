@@ -55,9 +55,11 @@ def get_model_tokenizer(model_id):
 
     model_config = _get_bnb_config()
 
-    model = AutoModelForCausalLM.from_pretrained(model_id).to("cpu")
+    model = AutoModelForCausalLM.from_pretrained(model_id)
 
     tokenizer = AutoTokenizer.from_pretrained(model_id,
+                                              mapping="auto",
+                                              quantization_config=model_config,
                                               add_bos_token=True)
 
     if not os.path.exists(model_id):
@@ -326,7 +328,7 @@ if __name__ == "__main__":
     tokenizer_meditron, model_meditron = get_model_tokenizer("epfl-llm/meditron-7b")
 
     embedding_extractor = SentenceTransformer("NeuML/pubmedbert-base-embeddings",
-                                              device="cpu")
+                                              device="cuda")
 
     nlp_model = spacy.load("en_core_sci_lg")
 
