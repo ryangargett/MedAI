@@ -55,11 +55,11 @@ def get_model_tokenizer(model_id):
 
     model_config = _get_bnb_config()
 
-    model = AutoModelForCausalLM.from_pretrained(model_id)
+    model = AutoModelForCausalLM.from_pretrained(model_id,
+                                                 device_map="auto",
+                                                 quantization_config=model_config)
 
     tokenizer = AutoTokenizer.from_pretrained(model_id,
-                                              mapping="auto",
-                                              quantization_config=model_config,
                                               add_bos_token=True)
 
     if not os.path.exists(model_id):
