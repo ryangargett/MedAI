@@ -4,7 +4,7 @@
 # Created Date: Mon Apr 22 2024                   #
 # Author: Ryan Gargett                            #
 # -----                                           #
-#Last Modified: Sun Apr 28 2024                  #
+#Last Modified: Mon Apr 29 2024                  #
 #Modified By: Ryan Gargett                       #
 ##################################################
 
@@ -323,7 +323,7 @@ if __name__ == "__main__":
     random.seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
 
-    login(token="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")
+    login(token="HUGGING_FACE_API_HERE")
 
     tokenizer_meditron, model_meditron = get_model_tokenizer("epfl-llm/meditron-7b")
 
