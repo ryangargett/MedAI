@@ -335,7 +335,7 @@ if __name__ == "__main__":
     pipe_meditron = pipeline("text-generation",
                              model=model_meditron,
                              tokenizer=tokenizer_meditron,
-                             max_new_tokens=100,
+                             max_new_tokens=200,
                              temperature=0.3,
                              do_sample=True)
 
